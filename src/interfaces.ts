@@ -1,14 +1,29 @@
 export interface StupConfig {
-    stubegruPath: string;
+    projects: StupProjectList;
+}
+
+export interface StupProjectList {
+    [index: string]: StupProject;
+}
+
+export enum StupProjectType{
+    stubegru = "stubegru",
+    git_repo = "git_repo"
+}
+
+export interface StupProject {
+    id:string;
+    path: string;
+    type: StupProjectType;
     targets: TargetList;
 }
 
-export interface TargetList{
+export interface TargetList {
     [index: string]: Target;
 }
 
 export interface Target {
-    id:string;
+    id: string;
     description: string;
     customBranch: string;
     tag: string;
@@ -21,14 +36,14 @@ export interface SSHConfig {
     key: string;
 }
 
-export class Repo{
-    name:string;
-    path:string;
-    target:Target;
+export class Repo {
+    name: string;
+    path: string;
+    target: Target;
 
-    constructor(name:string,config:StupConfig,target:Target,relativePath:string=""){
+    constructor(name: string, project: StupProject, target: Target, relativePath: string = "") {
         this.name = name;
-        this.path = config.stubegruPath + relativePath;
+        this.path = project.path + relativePath;
         let targetCopy = JSON.parse(JSON.stringify(target)) as Target;
         targetCopy.ssh.url += relativePath;
         this.target = targetCopy;

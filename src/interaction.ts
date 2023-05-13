@@ -1,7 +1,7 @@
 import inquirer from 'inquirer';
-import { TargetList } from './interfaces.js';
+import { StupProjectList, TargetList } from './interfaces.js';
 
-export function start(targets: TargetList) {
+export function askForTarget(targets: TargetList) {
 
     let targetIds = [];
     for (const targetId in targets) { targetIds.push(targetId); }
@@ -12,6 +12,24 @@ export function start(targets: TargetList) {
             name: 'targetId',
             message: 'Which target to deploy?',
             choices: targetIds,
+        }
+    ]
+
+    return inquirer.prompt(questions)
+
+}
+
+export function askForProject(projects: StupProjectList) {
+
+    let projectIds = [];
+    for (const projectId in projects) { projectIds.push(projectId); }
+
+    const questions = [
+        {
+            type: 'list',
+            name: 'projectId',
+            message: 'Which project to deploy?',
+            choices: projectIds,
         }
     ]
 

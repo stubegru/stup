@@ -1,6 +1,6 @@
 import * as bash from './bash.js';
 import * as cli from './interaction.js';
-import { Repo, StupConfig, Target } from './interfaces.js';
+import { Repo, StupConfig, StupProject, Target } from './interfaces.js';
 
 import ora from 'ora';
 import { readFileSync } from 'fs';
@@ -13,10 +13,10 @@ export function parseConfig(): StupConfig {
 }
 
 export function sayHello() {
-    console.log(`[${new Date().toLocaleString()}] Starting Stubegru deployment via SSH`);
+    console.log(`[${new Date().toLocaleString()}] Starting Stup deployment via SSH`);
 }
 
-export async function repoClean(repo:Repo) {
+export async function repoClean(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send(`git status --porcelain && echo ">>>EOE<<<"`);
     let cleanCheck = await bash.bashResponse();
@@ -28,15 +28,23 @@ export async function repoClean(repo:Repo) {
     console.log(`🟢 ${repo.name} repository is clean`);
 }
 
-export async function getCurrentTarget(config: StupConfig) {
-    const cliAnswers = await cli.start(config.targets);
+export async function getCurrentTarget(project: StupProject) {
+    const cliAnswers = await cli.askForTarget(project.targets);
     const targetId = cliAnswers.targetId;
-    const t: Target = config.targets[targetId];
+    const t: Target = project.targets[targetId];
     t.id = targetId;
     return t;
 }
 
-export async function checkCustomBranch(repo:Repo) {
+export async function getCurrentProject(config: StupConfig) {
+    const cliAnswers = await cli.askForProject(config.projects);
+    const projectId = cliAnswers.projectId;
+    const p: StupProject = config.projects[projectId];
+    p.id = projectId;
+    return p;
+}
+
+export async function checkCustomBranch(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send("git rev-parse --abbrev-ref HEAD")
     let actualBranch = await bash.bashResponse();
@@ -57,7 +65,7 @@ export async function loadSSHKey(t: Target) {
     console.log(`🟢 Loaded private key ${chalk.blueBright(t.ssh.key)}`);
 }
 
-export async function updateVersionFile(repo:Repo) {
+export async function updateVersionFile(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send("git rev-parse --short HEAD");
     let versionHash = await bash.bashResponse();
@@ -66,7 +74,7 @@ export async function updateVersionFile(repo:Repo) {
     return versionHash;
 }
 
-export async function gitFtp(repo:Repo) {
+export async function gitFtp(repo: Repo) {
     let spinner = ora(`Upload files using git-ftp for repo ${chalk.blueBright(repo.name)}`).start();
     bash.send(`cd ${repo.path}`);
     bash.send(`git-ftp push --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`);
@@ -129,7 +137,7 @@ export async function listCommits(repoList: Repo[]) {
     }
 }
 
-export async function updateGitTag(repo:Repo) {
+export async function updateGitTag(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send(`git tag -d ${repo.target.tag}`); //remove tag (from last commit)
     bash.send(`git tag ${repo.target.tag}`); //reassign tag (to latest commit)
@@ -142,5 +150,35 @@ export function quit() {
     bash.send(`ssh-agent -k`); //close ssh-agent
     console.log(`✅ ${chalk.greenBright("Deployment was successful")}`);
     bash.end();
+}
+
+export async function deployStubegru(project: StupProject) {
+    const target = await this.getCurrentTarget(project);
+    const mainRepo = new Repo("stubegru", project, target);
+    const customRepo = new Repo("custom-folder", project, target, "/custom");
+
+    await this.repoClean(mainRepo);
+    await this.checkCustomBranch(customRepo);
+    await this.repoClean(customRepo);
+    await this.loadSSHKey(target);
+    await this.updateVersionFile(mainRepo);
+
+    await this.gitFtp(mainRepo);
+    await this.gitFtp(customRepo);
+
+    await this.listCommits([mainRepo, customRepo]);
+    await this.updateGitTag(mainRepo);
+    await this.updateGitTag(customRepo);
+}
+
+export async function deployGitRepo(project: StupProject) {
+    const target = await this.getCurrentTarget(project);
+    const mainRepo = new Repo(project.id, project, target);
+
+    await this.repoClean(mainRepo);
+    await this.loadSSHKey(target);
+    await this.gitFtp(mainRepo);
+    await this.listCommits([mainRepo]);
+    await this.updateGitTag(mainRepo);
 }
 
