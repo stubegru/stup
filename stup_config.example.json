@@ -1,0 +1,35 @@
+{
+    "projects": {
+        "stubegru": {
+            "type": "stubegru",
+            "path": "/local/project/path",
+            "targets": {
+                "target1": {
+                    "description": "this is target 1",
+                    "tag": "git-tag-name",
+                    "customBranch": "branch-name-target1",
+                    "ssh": {
+                        "url": "sftp://yourhost:22/var/www/dir",
+                        "user": "dummy",
+                        "key": "~/.ssh/id_rsa"
+                    }
+                }
+            }
+        },
+        "project2": {
+            "type": "git_repo",
+            "path": "/local/project/path",
+            "targets": {
+                "target1": {
+                    "description": "this is target 1",
+                    "tag": "git-tag-name",
+                    "ssh": {
+                        "url": "sftp://yourhost:22/var/www/dir",
+                        "user": "dummy",
+                        "key": "~/.ssh/id_rsa"
+                    }
+                }
+            }
+        }
+    }
+}
