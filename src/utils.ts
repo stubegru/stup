@@ -74,8 +74,37 @@ export async function updateVersionFile(repo: Repo) {
     return versionHash;
 }
 
+export async function initGitFtp(repo: Repo) {
+    let spinner = ora(`Initialize git-ftp for repo ${chalk.blueBright(repo.name)}`).start();
+    bash.send(`cd ${repo.path}`);
+    bash.send(`git-ftp init --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`);
+
+    let gitFtpFirstLine = await bash.bashResponse() as string;
+
+    //check if some error occurred
+    if (new RegExp("fatal").test(gitFtpFirstLine)) {
+        spinner.stop();
+        console.error(`🔴 git-ftp init run into an fatal error on repo ${chalk.redBright(repo.name)}:`);
+        console.error("     " + gitFtpFirstLine);
+        console.error(`🔴 Are you sure the remote folder exists at ${chalk.redBright(repo.target.ssh.url)}?`);
+        console.error(`❌ ${chalk.redBright("Deployment Canceled!")}`);
+        process.exit(1);
+    }
+
+    //count number of files
+    let fileCount = gitFtpFirstLine.substring(0, gitFtpFirstLine.indexOf(" "));
+    spinner.start(`Upload ${chalk.greenBright(fileCount)} files from ${chalk.blueBright(repo.name)} Repo using git-ftp`);
+
+    let gitFtpResponseLines = await bash.bashResponse(new RegExp("Last deployment changed from"), true);
+    spinner.stop();
+    console.log(`🟢 Initialized ${chalk.blueBright(repo.name)} Repo with ${chalk.blueBright(fileCount)} files, git-ftp said:`);
+    for (const msg of gitFtpResponseLines) {
+        console.log(`  ${chalk.gray(msg)}`);
+    }
+}
+
 export async function gitFtp(repo: Repo) {
-    let spinner = ora(`Upload files using git-ftp for repo ${chalk.blueBright(repo.name)}`).start();
+    let spinner = ora(`Checking deployed version on target ${chalk.blueBright(repo.target.id)}`).start();
     bash.send(`cd ${repo.path}`);
     bash.send(`git-ftp push --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`);
 
@@ -92,9 +121,11 @@ export async function gitFtp(repo: Repo) {
     if (new RegExp("The resource does not exist").test(gitFtpFirstLine)) {
         spinner.stop();
         console.error(`🔵 git-ftp seems to be not initialized for repo ${chalk.blueBright(repo.name)}`);
-        console.error(`🔵 You could init git-ftp for this repo with:`);
-        console.error(`       ${chalk.gray(`cd ${repo.path}`)}`);
-        console.error(`       ${chalk.gray(`git-ftp init --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`)}`);
+        let msg = `Would you like to initialize this repo on target ${chalk.blueBright(repo.target.id)}?`;
+        if (await cli.askForYesNo(msg)){
+            await initGitFtp(repo);
+            return;
+        }
     }
 
     //check if some error occurred

@@ -36,3 +36,16 @@ export function askForProject(projects: StupProjectList) {
     return inquirer.prompt(questions)
 
 }
+
+export async function askForYesNo(msg) {
+    const questions = [
+        {
+            type: 'confirm',
+            name: 'confirm',
+            message: msg,
+        }
+    ]
+
+    let result = await inquirer.prompt(questions);
+    return result.confirm;
+}
