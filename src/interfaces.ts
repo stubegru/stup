@@ -28,6 +28,8 @@ export interface Target {
     customBranch: string;
     tag: string;
     ssh: SSHConfig;
+    preHash? : string;
+    postHash? : string;
 }
 
 export interface SSHConfig {

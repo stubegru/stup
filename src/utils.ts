@@ -6,6 +6,7 @@ import ora from 'ora';
 import { readFileSync } from 'fs';
 import * as url from 'url';
 import chalk from 'chalk';
+import { log } from 'console';
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url)); //legacy support for __dirname
 
 export function parseConfig(): StupConfig {
@@ -110,19 +111,19 @@ export async function gitFtp(repo: Repo) {
 
     let gitFtpFirstLine = await bash.bashResponse() as string;
 
-    //check if really upload or everything up to date
+    //check if an upload is necessary or remote is already up to date
     if (new RegExp("Everything up-to-date").test(gitFtpFirstLine)) {
         spinner.stop();
         console.log(`🟡 Files for Repo ${chalk.yellow(repo.name)} are already up-to-date. Uploaded no files here`);
         return;
     }
 
-    //check if some error occurred
+    //check if target is not yet initialized
     if (new RegExp("The resource does not exist").test(gitFtpFirstLine)) {
         spinner.stop();
         console.error(`🔵 git-ftp seems to be not initialized for repo ${chalk.blueBright(repo.name)}`);
         let msg = `Would you like to initialize this repo on target ${chalk.blueBright(repo.target.id)}?`;
-        if (await cli.askForYesNo(msg)){
+        if (await cli.askForYesNo(msg)) {
             await initGitFtp(repo);
             return;
         }
@@ -141,29 +142,49 @@ export async function gitFtp(repo: Repo) {
     let fileCount = gitFtpFirstLine.substring(0, gitFtpFirstLine.indexOf(" "));
     spinner.start(`Upload ${chalk.greenBright(fileCount)} files from ${chalk.blueBright(repo.name)} Repo using git-ftp`);
 
+    //fetch git-ftp output
     let gitFtpResponseLines = await bash.bashResponse(new RegExp("Last deployment changed from"), true);
-    //console.log(gitFtpResponse);
+
+    //announce success
     spinner.stop();
     console.log(`🟢 Uploaded ${chalk.blueBright(fileCount)} files from ${chalk.blueBright(repo.name)} Repo, git-ftp said:`);
-    for (const msg of gitFtpResponseLines) {
-        console.log(`  ${chalk.gray(msg)}`);
-    }
+    for (const msg of gitFtpResponseLines) { console.log(`  ${chalk.gray(msg)}`); }
+
+    //filter for commit hashes
+    //sample line: "Last deployment changed from ### to ###."
+    let hashLine = gitFtpResponseLines[gitFtpResponseLines.length - 1];
+    let words = hashLine.split(" ");
+    let preHash = words[4];
+    let postHash = words[6];
+    postHash = postHash.substring(0, postHash.length - 1); //remove last character, its a useless dot
+    repo.target.preHash = preHash;
+    repo.target.postHash = postHash;
+
 }
 
 export async function listCommits(repoList: Repo[]) {
+
     let storage = [];
     for (const repo of repoList) {
+        if (!repo.target.preHash || !repo.target.postHash) {
+            console.log(`🟡 Could not retrieve commits for Repo ${chalk.yellow(repo.name)}.`);
+            continue;
+        }
+
         bash.send(`cd ${repo.path}`);
-        bash.send(`git log --pretty=format:%s ${repo.target.tag}..HEAD && echo ">>> No commits found for ${chalk.blueBright(repo.name)} <<<"`); //echo some random text to prevent getting no response for empty commit list
+        bash.send(`git log --pretty=format:%s ${repo.target.preHash}..${repo.target.postHash}`);
         let commits = await bash.bashResponse() as string;
+        
         let commitList = commits.split("\n");
         storage.push({ repo: repo, list: commitList });
     }
 
-    console.log(`🟢 Updated changes made by these commits:`);
-    for (const sto of storage) {
-        for (const c of sto.list) {
-            console.log(`  - [${sto.repo.name}] ${chalk.gray(c)}`);
+    if (storage.length > 0) {
+        console.log(`🟢 Updated changes made by these commits:`);
+        for (const sto of storage) {
+            for (const c of sto.list) {
+                console.log(`  - [${sto.repo.name}] ${chalk.gray(c)}`);
+            }
         }
     }
 }

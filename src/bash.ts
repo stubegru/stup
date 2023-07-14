@@ -8,7 +8,11 @@ const bashProcess = child_process.spawn('bash');
 
 function handleBashBuffer(dataBuffer) {
     let dataString: string = dataBuffer.toString("utf8");
-    dataString = dataString.substring(0, dataString.length - 1); //remove \n at the end
+
+    //remove last \n at the end (if present)
+    if (dataString[dataString.length - 1] == "\n") {
+        dataString = dataString.substring(0, dataString.length - 1);
+    }
 
     if (bashPromise) {
         if (bashPromise.regex.test(dataString)) {
@@ -39,7 +43,7 @@ bashProcess.on('close', (code) => {
     if (VERBOSE) { console.log(`child process exited with code ${code}`); }
 });
 
-export function bashResponse(regex?: RegExp, collect?: boolean): Promise<String|String[]> {
+export function bashResponse(regex?: RegExp, collect?: boolean): Promise<String | String[]> {
     regex = regex || new RegExp("[\s\S]*"); //match anything
     return new Promise((resolve, reject) => {
         bashPromise = { resolve: resolve, reject: reject, regex: regex, collect: collect };
