@@ -193,9 +193,7 @@ export async function updateGitTag(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send(`git tag -d ${repo.target.tag}`); //remove tag (from last commit)
     bash.send(`git tag ${repo.target.tag}`); //reassign tag (to latest commit)
-    bash.send("git rev-parse --short HEAD");
-    let commitHash = await bash.bashResponse();
-    console.log(`🟢 Added git-tag ${chalk.blueBright(repo.target.tag)} to current commit ${chalk.blueBright(commitHash)} in ${chalk.blueBright(repo.name)} Repo`);
+    console.log(`🟢 Added git-tag ${chalk.blueBright(repo.target.tag)} to current commit in ${chalk.blueBright(repo.name)} Repo`);
 }
 
 export function quit() {
