@@ -104,6 +104,15 @@ export async function initGitFtp(repo: Repo) {
     }
 }
 
+export async function checkForProtection(repo: Repo) {
+    if (repo.target.protected) {
+        if (await cli.askForYesNo(`This target is protected. Are you sure?`) == false) {
+            console.error(`❌ ${chalk.redBright("Deployment Canceled!")}`);
+            process.exit(1);
+        }
+    }
+}
+
 export async function gitFtp(repo: Repo) {
     let spinner = ora(`Checking deployed version on target ${chalk.blueBright(repo.target.id)}`).start();
     bash.send(`cd ${repo.path}`);
@@ -174,7 +183,7 @@ export async function listCommits(repoList: Repo[]) {
         bash.send(`cd ${repo.path}`);
         bash.send(`git log --pretty=format:%s ${repo.target.preHash}..${repo.target.postHash}`);
         let commits = await bash.bashResponse() as string;
-        
+
         let commitList = commits.split("\n");
         storage.push({ repo: repo, list: commitList });
     }
@@ -210,6 +219,8 @@ export async function deployStubegru(project: StupProject) {
     await this.repoClean(mainRepo);
     await this.checkCustomBranch(customRepo);
     await this.repoClean(customRepo);
+    await this.checkForProtection(mainRepo);
+
     await this.loadSSHKey(target);
     await this.updateVersionFile(mainRepo);
 
@@ -226,6 +237,8 @@ export async function deployGitRepo(project: StupProject) {
     const mainRepo = new Repo(project.id, project, target);
 
     await this.repoClean(mainRepo);
+    await this.checkForProtection(mainRepo);
+
     await this.loadSSHKey(target);
     await this.gitFtp(mainRepo);
     await this.listCommits([mainRepo]);

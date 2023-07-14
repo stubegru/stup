@@ -12,7 +12,8 @@
                         "url": "sftp://yourhost:22/var/www/dir",
                         "user": "dummy",
                         "key": "~/.ssh/id_rsa"
-                    }
+                    },
+                    "protected": true
                 }
             }
         },
@@ -27,7 +28,8 @@
                         "url": "sftp://yourhost:22/var/www/dir",
                         "user": "dummy",
                         "key": "~/.ssh/id_rsa"
-                    }
+                    },
+                    "protected": false
                 }
             }
         }

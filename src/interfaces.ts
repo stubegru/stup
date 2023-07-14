@@ -6,13 +6,13 @@ export interface StupProjectList {
     [index: string]: StupProject;
 }
 
-export enum StupProjectType{
+export enum StupProjectType {
     stubegru = "stubegru",
     git_repo = "git_repo"
 }
 
 export interface StupProject {
-    id:string;
+    id: string;
     path: string;
     type: StupProjectType;
     targets: TargetList;
@@ -28,8 +28,9 @@ export interface Target {
     customBranch: string;
     tag: string;
     ssh: SSHConfig;
-    preHash? : string;
-    postHash? : string;
+    preHash?: string;
+    postHash?: string;
+    protected: boolean;
 }
 
 export interface SSHConfig {
