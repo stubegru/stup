@@ -29,7 +29,7 @@ export async function repoClean(repo: Repo) {
     console.log(`🟢 ${repo.name} repository is clean`);
 }
 
-export async function getCurrentTarget(project: StupProject, targetId?:string) {
+export async function getCurrentTarget(project: StupProject, targetId?: string) {
     targetId = targetId || (await cli.askForTarget(project.targets)).targetId;
     const t: Target = project.targets[targetId];
     if (!t) {
@@ -121,7 +121,7 @@ export async function checkForProtection(repo: Repo) {
     }
 }
 
-export async function gitFtp(repo: Repo, options:deployOptions) {
+export async function gitFtp(repo: Repo, options: deployOptions) {
     let spinner = ora(`Checking deployed version on target ${chalk.blueBright(repo.target.id)}`).start();
     bash.send(`cd ${repo.path}`);
     bash.send(`git-ftp push --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`);
@@ -179,9 +179,13 @@ export async function gitFtp(repo: Repo, options:deployOptions) {
 
 }
 
-export async function listCommits(repoList: Repo[]) {
+export async function listCommits(repoList: Repo[]): Promise<string[]> {
 
-    let storage = [];
+    interface StorageItem { repo: Repo; list: string[]; }
+
+    let storage: StorageItem[] = [];
+    let stupHints: string[] = [];
+
     for (const repo of repoList) {
         if (!repo.target.preHash || !repo.target.postHash) {
             console.log(`🟡 Could not retrieve commits for Repo ${chalk.yellow(repo.name)}.`);
@@ -200,10 +204,20 @@ export async function listCommits(repoList: Repo[]) {
         console.log(`🟢 Updated changes made by these commits:`);
         for (const sto of storage) {
             for (const c of sto.list) {
+
+                let start = c.indexOf("[stup|");
+                let end = c.indexOf("]");
+                if (start != -1 && end != -1) {
+                    let msg = c.substring(start + 6, end);
+                    stupHints.push(msg);
+                }
+
                 console.log(`  - [${sto.repo.name}] ${chalk.gray(c)}`);
             }
         }
     }
+
+    return stupHints;
 }
 
 export async function updateGitTag(repo: Repo) {
@@ -219,35 +233,43 @@ export function quit() {
     bash.end();
 }
 
-export async function deployStubegru(project: StupProject, target:Target, options:deployOptions) {
+export function listHints(hints: string[]) {
+    for (const hint of hints) {
+        console.log(`🔵 [STUP HINT] ${chalk.bgWhite(chalk.black(hint))}`);
+    }
+}
+
+export async function deployStubegru(project: StupProject, target: Target, options: deployOptions) {
     const mainRepo = new Repo("stubegru", project, target);
     const customRepo = new Repo("custom-folder", project, target, "/custom");
 
     await this.repoClean(mainRepo);
     await this.checkCustomBranch(customRepo);
     await this.repoClean(customRepo);
-    if(!options.yes) {await this.checkForProtection(mainRepo)};
+    if (!options.yes) { await this.checkForProtection(mainRepo) };
 
     await this.loadSSHKey(target);
     await this.updateVersionFile(mainRepo);
 
-    await this.gitFtp(mainRepo,options);
-    await this.gitFtp(customRepo,options);
+    await this.gitFtp(mainRepo, options);
+    await this.gitFtp(customRepo, options);
 
-    await this.listCommits([mainRepo, customRepo]);
+    let hints = await this.listCommits([mainRepo, customRepo]);
     await this.updateGitTag(mainRepo);
     await this.updateGitTag(customRepo);
+    this.listHints(hints);
 }
 
-export async function deployGitRepo(project: StupProject, target:Target, options:deployOptions) {
+export async function deployGitRepo(project: StupProject, target: Target, options: deployOptions) {
     const mainRepo = new Repo(project.id, project, target);
 
     await this.repoClean(mainRepo);
-    if(!options.yes) {await this.checkForProtection(mainRepo)};
+    if (!options.yes) { await this.checkForProtection(mainRepo) };
 
     await this.loadSSHKey(target);
-    await this.gitFtp(mainRepo,options);
-    await this.listCommits([mainRepo]);
+    await this.gitFtp(mainRepo, options);
+    let hints = await this.listCommits([mainRepo]);
     await this.updateGitTag(mainRepo);
+    this.listHints(hints);
 }
 
