@@ -1,6 +1,6 @@
 import * as bash from './bash.js';
-import * as cli from './interaction.js';
-import { Repo, StupConfig, StupProject, Target } from './interfaces.js';
+import * as cli from './userInterface.js';
+import { Repo, StupConfig, StupProject, Target, deployOptions } from './interfaces.js';
 
 import ora from 'ora';
 import { readFileSync } from 'fs';
@@ -29,18 +29,26 @@ export async function repoClean(repo: Repo) {
     console.log(`🟢 ${repo.name} repository is clean`);
 }
 
-export async function getCurrentTarget(project: StupProject) {
-    const cliAnswers = await cli.askForTarget(project.targets);
-    const targetId = cliAnswers.targetId;
+export async function getCurrentTarget(project: StupProject, targetId?:string) {
+    targetId = targetId || (await cli.askForTarget(project.targets)).targetId;
     const t: Target = project.targets[targetId];
+    if (!t) {
+        console.error(`🔴 Could not find target with id ${chalk.blueBright(targetId)} for project ${chalk.blueBright(project.id)}`);
+        console.error(`❌ ${chalk.redBright("Deployment Canceled!")}`);
+        process.exit(1);
+    }
     t.id = targetId;
     return t;
 }
 
-export async function getCurrentProject(config: StupConfig) {
-    const cliAnswers = await cli.askForProject(config.projects);
-    const projectId = cliAnswers.projectId;
+export async function getCurrentProject(config: StupConfig, projectId?: string) {
+    projectId = projectId || (await cli.askForProject(config.projects)).projectId;
     const p: StupProject = config.projects[projectId];
+    if (!p) {
+        console.error(`🔴 Could not find project with id ${chalk.blueBright(projectId)}`);
+        console.error(`❌ ${chalk.redBright("Deployment Canceled!")}`);
+        process.exit(1);
+    }
     p.id = projectId;
     return p;
 }
@@ -113,7 +121,7 @@ export async function checkForProtection(repo: Repo) {
     }
 }
 
-export async function gitFtp(repo: Repo) {
+export async function gitFtp(repo: Repo, options:deployOptions) {
     let spinner = ora(`Checking deployed version on target ${chalk.blueBright(repo.target.id)}`).start();
     bash.send(`cd ${repo.path}`);
     bash.send(`git-ftp push --user ${repo.target.ssh.user} --key "${repo.target.ssh.key}" "${repo.target.ssh.url}"`);
@@ -132,7 +140,7 @@ export async function gitFtp(repo: Repo) {
         spinner.stop();
         console.error(`🔵 git-ftp seems to be not initialized for repo ${chalk.blueBright(repo.name)}`);
         let msg = `Would you like to initialize this repo on target ${chalk.blueBright(repo.target.id)}?`;
-        if (await cli.askForYesNo(msg)) {
+        if (options.yes || await cli.askForYesNo(msg)) {
             await initGitFtp(repo);
             return;
         }
@@ -211,36 +219,34 @@ export function quit() {
     bash.end();
 }
 
-export async function deployStubegru(project: StupProject) {
-    const target = await this.getCurrentTarget(project);
+export async function deployStubegru(project: StupProject, target:Target, options:deployOptions) {
     const mainRepo = new Repo("stubegru", project, target);
     const customRepo = new Repo("custom-folder", project, target, "/custom");
 
     await this.repoClean(mainRepo);
     await this.checkCustomBranch(customRepo);
     await this.repoClean(customRepo);
-    await this.checkForProtection(mainRepo);
+    if(!options.yes) {await this.checkForProtection(mainRepo)};
 
     await this.loadSSHKey(target);
     await this.updateVersionFile(mainRepo);
 
-    await this.gitFtp(mainRepo);
-    await this.gitFtp(customRepo);
+    await this.gitFtp(mainRepo,options);
+    await this.gitFtp(customRepo,options);
 
     await this.listCommits([mainRepo, customRepo]);
     await this.updateGitTag(mainRepo);
     await this.updateGitTag(customRepo);
 }
 
-export async function deployGitRepo(project: StupProject) {
-    const target = await this.getCurrentTarget(project);
+export async function deployGitRepo(project: StupProject, target:Target, options:deployOptions) {
     const mainRepo = new Repo(project.id, project, target);
 
     await this.repoClean(mainRepo);
-    await this.checkForProtection(mainRepo);
+    if(!options.yes) {await this.checkForProtection(mainRepo)};
 
     await this.loadSSHKey(target);
-    await this.gitFtp(mainRepo);
+    await this.gitFtp(mainRepo,options);
     await this.listCommits([mainRepo]);
     await this.updateGitTag(mainRepo);
 }

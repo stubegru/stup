@@ -1,5 +1,17 @@
 import inquirer from 'inquirer';
-import { StupProjectList, TargetList } from './interfaces.js';
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
+import { CliParams, StupProjectList, TargetList } from './interfaces.js';
+
+
+export function parseCliParams(): CliParams {
+    let cliParams = yargs(hideBin(process.argv)).argv;
+    let options: CliParams = { projectId: undefined, targetId: undefined, yes: false };
+    options.projectId = cliParams["p"] || cliParams["project"];
+    options.targetId = cliParams["t"] || cliParams["target"];
+    options.yes = cliParams["y"] || cliParams["yes"];
+    return options;
+}
 
 export function askForTarget(targets: TargetList) {
 

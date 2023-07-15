@@ -39,6 +39,16 @@ export interface SSHConfig {
     key: string;
 }
 
+export interface CliParams {
+    projectId: string;
+    targetId: string;
+    yes: boolean;
+}
+
+export interface deployOptions {
+    yes: boolean;
+}
+
 export class Repo {
     name: string;
     path: string;
