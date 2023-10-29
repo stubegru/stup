@@ -209,7 +209,7 @@ export async function listCommits(repoList: Repo[]): Promise<string[]> {
         }
 
         bash.send(`cd ${repo.path}`);
-        bash.send(`git log --pretty=format:%s ${repo.target.preHash}..${repo.target.postHash}`);
+        bash.send(`git log --pretty=format:%s§§§%h ${repo.target.preHash}..${repo.target.postHash}`);
         let commits = await bash.bashResponse() as string;
 
         let commitList = commits.split("\n");
@@ -219,16 +219,22 @@ export async function listCommits(repoList: Repo[]): Promise<string[]> {
     if (storage.length > 0) {
         console.log(`🟢 Updated changes made by these commits:`);
         for (const sto of storage) {
-            for (const c of sto.list) {
+            for (const line of sto.list) {
+                //split commit message and commit id/hash
+                //data is stored as commitMessage§§§commitHash
+                let commitMessage = line.substring(0,line.indexOf("§§§"));
+                let commitHash = line.substring(line.indexOf("§§§")+3);
 
-                let start = c.indexOf("[stup|");
-                let end = c.indexOf("]");
+                //filter stup hints
+                let start = commitMessage.indexOf("[stup|");
+                let end = commitMessage.indexOf("]");
                 if (start != -1 && end != -1) {
-                    let msg = c.substring(start + 6, end);
+                    let msg = commitMessage.substring(start + 6, end);
                     stupHints.push(msg);
                 }
 
-                console.log(`  - [${sto.repo.name}] ${chalk.gray(c)}`);
+                //write line to console
+                console.log(`  - [${sto.repo.name}] ${chalk.gray(commitMessage)} #${commitHash}`);
             }
         }
     }
