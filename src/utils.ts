@@ -53,6 +53,22 @@ export async function getCurrentProject(config: StupConfig, projectId?: string) 
     return p;
 }
 
+/**
+ * Check if the repo's branch is the default branch (main or master). Warn if not.
+ * @param repo The repo to check
+ */
+export async function checkMainBranch(repo: Repo) {
+    bash.send(`cd ${repo.path}`);
+    bash.send("git rev-parse --abbrev-ref HEAD");
+    let actualBranch = await bash.bashResponse();
+    if (actualBranch != "main" && actualBranch != "master") {
+        if (await cli.askForYesNo(`You are deploying the branch ${chalk.blueBright(actualBranch)}, this is ${chalk.yellowBright("not main/master")}. Are you sure?`) == false) {
+            console.error(`❌ ${chalk.redBright("Deployment Canceled!")}`);
+            process.exit(1);
+        }
+    }
+}
+
 export async function checkCustomBranch(repo: Repo) {
     bash.send(`cd ${repo.path}`);
     bash.send("git rev-parse --abbrev-ref HEAD")
@@ -243,33 +259,35 @@ export async function deployStubegru(project: StupProject, target: Target, optio
     const mainRepo = new Repo("stubegru", project, target);
     const customRepo = new Repo("custom-folder", project, target, "/custom");
 
-    await this.repoClean(mainRepo);
-    await this.checkCustomBranch(customRepo);
-    await this.repoClean(customRepo);
-    if (!options.yes) { await this.checkForProtection(mainRepo) };
+    await repoClean(mainRepo);
+    await checkMainBranch(mainRepo);
+    await checkCustomBranch(customRepo);
+    await repoClean(customRepo);
+    if (!options.yes) { await checkForProtection(mainRepo) };
 
-    await this.loadSSHKey(target);
-    await this.updateVersionFile(mainRepo);
+    await loadSSHKey(target);
+    await updateVersionFile(mainRepo);
 
-    await this.gitFtp(mainRepo, options);
-    await this.gitFtp(customRepo, options);
+    await gitFtp(mainRepo, options);
+    await gitFtp(customRepo, options);
 
-    let hints = await this.listCommits([mainRepo, customRepo]);
-    await this.updateGitTag(mainRepo);
-    await this.updateGitTag(customRepo);
-    this.listHints(hints);
+    let hints = await listCommits([mainRepo, customRepo]);
+    await updateGitTag(mainRepo);
+    await updateGitTag(customRepo);
+    listHints(hints);
 }
 
 export async function deployGitRepo(project: StupProject, target: Target, options: deployOptions) {
     const mainRepo = new Repo(project.id, project, target);
 
-    await this.repoClean(mainRepo);
-    if (!options.yes) { await this.checkForProtection(mainRepo) };
+    await repoClean(mainRepo);
+    await checkMainBranch(mainRepo);
+    if (!options.yes) { await checkForProtection(mainRepo) };
 
-    await this.loadSSHKey(target);
-    await this.gitFtp(mainRepo, options);
-    let hints = await this.listCommits([mainRepo]);
-    await this.updateGitTag(mainRepo);
-    this.listHints(hints);
+    await loadSSHKey(target);
+    await gitFtp(mainRepo, options);
+    let hints = await listCommits([mainRepo]);
+    await updateGitTag(mainRepo);
+    listHints(hints);
 }
 
