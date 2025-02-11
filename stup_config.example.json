@@ -13,6 +13,7 @@
                         "user": "dummy",
                         "key": "~/.ssh/id_rsa"
                     },
+                    
                     "protected": true
                 }
             }

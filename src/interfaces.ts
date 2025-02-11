@@ -62,3 +62,10 @@ export class Repo {
         this.target = targetCopy;
     }
 }
+
+export interface SqlConnection{
+    host:string;
+    user:string;
+    password:string;
+    name:string;
+}

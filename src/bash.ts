@@ -57,3 +57,4 @@ export function send(data) {
 export function end() {
     bashProcess.stdin.end();
 }
+
