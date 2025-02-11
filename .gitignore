@@ -132,3 +132,4 @@ dist
 
 stup_config.json
 src/*.js
+src/*.js.map
