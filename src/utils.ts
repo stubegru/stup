@@ -209,8 +209,13 @@ export async function listCommits(repoList: Repo[]): Promise<string[]> {
         }
 
         bash.send(`cd ${repo.path}`);
-        bash.send(`git log --pretty=format:%s§§§%h ${repo.target.preHash}..${repo.target.postHash}`);
-        let commits = await bash.bashResponse() as string;
+
+        //Somehow the bash response does sometimes not contain the full output of the "git log" command. So we echo some unique string (>>>EOCL<<<) after calling the git log command and collect all response data until this string is received
+        bash.send(`git log --pretty=format:%s§§§%h ${repo.target.preHash}..${repo.target.postHash} && echo ">>>EOCL<<<"`);
+        let respChunks = await bash.bashResponse(new RegExp(">>>EOCL<<<"), true) as string[];
+
+        let commits = respChunks.join("");//convert response chunks to one response string 
+        commits = commits.slice(0, -10);//remove the ">>>EOCL<<<" at the end
 
         let commitList = commits.split("\n");
         storage.push({ repo: repo, list: commitList });
@@ -222,8 +227,8 @@ export async function listCommits(repoList: Repo[]): Promise<string[]> {
             for (const line of sto.list) {
                 //split commit message and commit id/hash
                 //data is stored as commitMessage§§§commitHash
-                let commitMessage = line.substring(0,line.indexOf("§§§"));
-                let commitHash = line.substring(line.indexOf("§§§")+3);
+                let commitMessage = line.substring(0, line.indexOf("§§§"));
+                let commitHash = line.substring(line.indexOf("§§§") + 3);
 
                 //filter stup hints
                 let start = commitMessage.indexOf("[stup|");
